@@ -69,12 +69,19 @@ void initialize(void)
 void reset()
 {
 	Si1132_I2C_write8(Si1132_REG_MEASRATE0, 0);
+	usleep(10000);
 	Si1132_I2C_write8(Si1132_REG_MEASRATE1, 0);
+	usleep(10000);
 	Si1132_I2C_write8(Si1132_REG_IRQEN, 0);
+	usleep(10000);
 	Si1132_I2C_write8(Si1132_REG_IRQMODE1, 0);
+	usleep(10000);
 	Si1132_I2C_write8(Si1132_REG_IRQMODE2, 0);
+	usleep(10000);
 	Si1132_I2C_write8(Si1132_REG_INTCFG, 0);
+	usleep(10000);
 	Si1132_I2C_write8(Si1132_REG_IRQSTAT, 0xFF);
+	usleep(10000);
 
 	Si1132_I2C_write8(Si1132_REG_COMMAND, Si1132_RESET);
 	usleep(10000);
