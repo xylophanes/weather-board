@@ -4,7 +4,7 @@
 #include "si702x.h"
 #include "bmp180.h"
 
-const char version[] = "v1.5";
+const char version[] = "v1.6";
 
 static int pressure;
 static int temperature;
@@ -27,12 +27,12 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	si1132_begin(device);
 	if (bme280_begin(device) < 0) {
 		si702x_begin(device);
 		bmp180_begin(device);
 		WBVersion = 1;
 	}
+	si1132_begin(device);
 
 	printf("\e[2J");
 	printf("\e[5;30HWEATHER-BOARD %s\n", version);

@@ -22,25 +22,27 @@ void initialize(void)
 {
 	reset();
 
-	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_UCOEF0, 0x29);
-	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_UCOEF1, 0x89);
-	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_UCOEF2, 0x02);
+	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_UCOEF0, 0x7B);
+	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_UCOEF1, 0x6B);
+	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_UCOEF2, 0x01);
 	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_UCOEF3, 0x00);
 
 	Si1132_I2C_writeParam(Si1132_PARAM_CHLIST, Si1132_PARAM_CHLIST_ENUV |
-		Si1132_PARAM_CHLIST_ENAUX | Si1132_PARAM_CHLIST_ENALSIR |
-					Si1132_PARAM_CHLIST_ENALSVIS);
+		Si1132_PARAM_CHLIST_ENALSIR | Si1132_PARAM_CHLIST_ENALSVIS);
+	usleep(10000);
 
 	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_INTCFG,
 					Si1132_REG_INTCFG_INTOE);
+	usleep(10000);
 	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_IRQEN,
 					Si1132_REG_IRQEN_ALSEVERYSAMPLE);
+	usleep(10000);
 
 	Si1132_I2C_writeParam(Si1132_PARAM_ALSIRADCMUX,
 					Si1132_PARAM_ADCMUX_SMALLIR);
 	usleep(10000);
 	// fastest clocks, clock div 1
-	Si1132_I2C_writeParam(Si1132_PARAM_ALSIRADCGAIN, 2);
+	Si1132_I2C_writeParam(Si1132_PARAM_ALSIRADCGAIN, 0);
 	usleep(10000);
 	// take 511 clocks to measure
 	Si1132_I2C_writeParam(Si1132_PARAM_ALSIRADCCOUNTER,
@@ -50,7 +52,7 @@ void initialize(void)
 					Si1132_PARAM_ALSIRADCMISC_RANGE);
 	usleep(10000);
 	// fastest clocks
-	Si1132_I2C_writeParam(Si1132_PARAM_ALSVISADCGAIN, 3);
+	Si1132_I2C_writeParam(Si1132_PARAM_ALSVISADCGAIN, 0);
 	usleep(10000);
 	// take 511 clocks to measure
 	Si1132_I2C_writeParam(Si1132_PARAM_ALSVISADCCOUNTER,
@@ -67,12 +69,19 @@ void initialize(void)
 void reset()
 {
 	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_MEASRATE0, 0);
+	usleep(10000);
 	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_MEASRATE1, 0);
+	usleep(10000);
 	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_IRQEN, 0);
+	usleep(10000);
 	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_IRQMODE1, 0);
+	usleep(10000);
 	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_IRQMODE2, 0);
+	usleep(10000);
 	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_INTCFG, 0);
+	usleep(10000);
 	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_IRQSTAT, 0xFF);
+	usleep(10000);
 
 	wiringPiI2CWriteReg8(si1132Fd, Si1132_REG_COMMAND, Si1132_RESET);
 	usleep(10000);
@@ -84,13 +93,13 @@ void reset()
 float Si1132_readVisible()
 {
 	usleep(10000);
-	return wiringPiI2CReadReg16(si1132Fd, 0x22) - 250;
+	return ((wiringPiI2CReadReg16(si1132Fd, 0x22) - 256)/0.282)*14.5;
 }
 
 float Si1132_readIR()
 {
 	usleep(10000);
-	return wiringPiI2CReadReg16(si1132Fd, 0x24) - 250;
+	return ((wiringPiI2CReadReg16(si1132Fd, 0x24) - 250)/2.44)*14.5;
 }
 
 float Si1132_readUV()
