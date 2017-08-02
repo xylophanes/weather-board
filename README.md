@@ -1,3 +1,3 @@
 This is a project for the WEATHER-BOARD
 
-WEATHER-BOARD Wiki : http://odroid.com/dokuwiki/doku.php?id=en:weather-board
+WEATHER-BOARD Wiki : https://wiki.odroid.com/accessory/sensor/weather-board/weather-board
