@@ -2,7 +2,7 @@ CC = gcc
 CFLAG = -g
 OBJGROUP = si1132.o bme280-i2c.o bme280.o weather_board.o
 
-EXTRA_LIBS = -lwiringPi -lpthread
+EXTRA_LIBS = -lwiringPi -lwiringPiDev -lm -lpthread -lrt -lcrypt
 
 all: weather_board
 
