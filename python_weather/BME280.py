@@ -73,7 +73,7 @@ class BME280:
         self.bus = smbus.SMBus(int(i2c_dev.split('-')[-1]))
         self.chip_id = self.read(regs['BME280_CHIP_ID_REG'], 1)[0]
         if self.chip_id != BME280_CHIP_ID:
-            print "Wrong Device ID [", hex(self.chip_id), "]"
+            print("Wrong Device ID [", hex(self.chip_id), "]")
             exit()
 
         self.config_reg = 0
@@ -91,13 +91,13 @@ class BME280:
         self.t_fine = 0.0
 
     def read(self, reg, cnt):
-        val = [0 for x in xrange(cnt)]
-        for i in xrange(cnt):
+        val = [0 for x in range(cnt)]
+        for i in range(cnt):
             val[i] = self.bus.read_byte_data(BME280_I2C_ADDR, reg + i)
-	return val
+        return val
 
     def write(self, reg, val):
-        for i in xrange(len(val)):
+        for i in range(len(val)):
             self.bus.write_byte_data(BME280_I2C_ADDR, reg + i, val[i])
 
     def get_cal_param(self):
@@ -143,7 +143,7 @@ class BME280:
             self.ctrl_hum_reg = self.read(regs['BME280_CTRL_HUMIDITY_REG'], 1)[0]
             self.config_reg = self.read(regs['BME280_CONFIG_REG'], 1)[0]
         else:
-            print "Wrong Power Mode [", hex(p_mode), "]"
+            print("Wrong Power Mode [", hex(p_mode), "]")
             exit()
 
     def soft_rst(self):

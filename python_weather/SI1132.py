@@ -77,9 +77,9 @@ regs = {
 class SI1132:
     def __init__(self, i2c_dev):
         self.bus = smbus.SMBus(int(i2c_dev.split('-')[-1]))
-	self.id = self.read_reg8(0x00)
+        self.id = self.read_reg8(0x00)
         if self.id != SI1132_PARTID:
-            print "Wrong Device ID [", hex(self.id), "]"
+            print("Wrong Device ID [", hex(self.id), "]")
             exit()
 
         self.reset()
@@ -124,16 +124,16 @@ class SI1132:
         time.sleep(0.01)
 
     def read_reg8(self, reg):
-	return self.bus.read_byte_data(SI1132_I2C_ADDR, reg)
+        return self.bus.read_byte_data(SI1132_I2C_ADDR, reg)
 
     def read_reg16(self, reg):
-	return self.bus.read_word_data(SI1132_I2C_ADDR, reg)
+        return self.bus.read_word_data(SI1132_I2C_ADDR, reg)
 
     def write_reg8(self, reg, val):
-	self.bus.write_byte_data(SI1132_I2C_ADDR, reg, val)
+        self.bus.write_byte_data(SI1132_I2C_ADDR, reg, val)
 
     def write_reg16(self, reg, val):
-	self.bus.write_word_data(SI1132_I2C_ADDR, reg, val)
+        self.bus.write_word_data(SI1132_I2C_ADDR, reg, val)
 
     def writeParam(self, param, val):
         self.write_reg8(regs['Si1132_REG_PARAMWR'], val)
