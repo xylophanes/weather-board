@@ -2,13 +2,14 @@
 
 ODROID_Si1132::ODROID_Si1132()
 {
+	_wire = &Wire;
 	_addr = Si1132_ADDR;
 }
 
 
-boolean ODROID_Si1132::begin(void)
+uint8_t ODROID_Si1132::begin(void)
 {
-	Wire.begin();
+	_wire->begin();
 	reset();
 
 	// enable UVindex measurement coefficients!
@@ -42,6 +43,12 @@ boolean ODROID_Si1132::begin(void)
 	write8(Si1132_REG_COMMAND, Si1132_ALS_AUTO);
 
 	return true;
+}
+
+uint8_t ODROID_Si1132::begin(TwoWire *connected_wire)
+{
+	_wire = connected_wire;
+	begin();
 }
 
 uint16_t ODROID_Si1132::readUV()
@@ -82,35 +89,35 @@ void ODROID_Si1132::reset()
 uint8_t ODROID_Si1132::read8(uint8_t reg)
 {
 	uint16_t val;
-	Wire.beginTransmission(_addr);
-	Wire.write((uint8_t)reg);
-	Wire.endTransmission();
+	_wire->beginTransmission(_addr);
+	_wire->write((uint8_t)reg);
+	_wire->endTransmission();
 
-	Wire.requestFrom((uint8_t)_addr, (uint8_t)1);
-	return Wire.read();
+	_wire->requestFrom((uint8_t)_addr, (uint8_t)1);
+	return _wire->read();
 }
 
 uint16_t ODROID_Si1132::read16(uint8_t reg)
 {
 	uint16_t ret;
 
-	Wire.beginTransmission(_addr);
-	Wire.write(reg);
-	Wire.endTransmission();
+	_wire->beginTransmission(_addr);
+	_wire->write(reg);
+	_wire->endTransmission();
 
-	Wire.requestFrom(_addr, (uint8_t)2);
-	ret = Wire.read();
-	ret |= (uint16_t)Wire.read() << 8;
+	_wire->requestFrom(_addr, (uint8_t)2);
+	ret = _wire->read();
+	ret |= (uint16_t)_wire->read() << 8;
 
 	return ret;
 }
 
 void ODROID_Si1132::write8(uint8_t reg, uint8_t val)
 {
-	Wire.beginTransmission(_addr);
-	Wire.write(reg);
-	Wire.write(val);
-	Wire.endTransmission();
+	_wire->beginTransmission(_addr);
+	_wire->write(reg);
+	_wire->write(val);
+	_wire->endTransmission();
 }
 
 uint8_t ODROID_Si1132::writeParam(uint8_t p, uint8_t v)

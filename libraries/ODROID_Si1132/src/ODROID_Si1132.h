@@ -1,8 +1,5 @@
-#if (ARDUINO >= 100)
-	#include "Arduino.h"
-#else
-	#include "WProgram.h"
-#endif
+#include "Arduino.h"
+
 #include <Wire.h>
 
 /* COMMANDS */
@@ -84,18 +81,20 @@
 class ODROID_Si1132 {
 	public :
 		ODROID_Si1132(void);
-		boolean begin(void);
+		uint8_t begin(void);
+		uint8_t begin(TwoWire *connected_wire);
 		void reset(void);
-		uint16_t readTemperature(void);
+		// uint16_t readTemperature(void);
 		uint16_t readUV(void);
 		float readVisible(void);
 		float readIR(void);
 	private :
+		TwoWire *_wire;
+		uint8_t _addr;
 		uint16_t read16(uint8_t addr);
 		uint8_t read8(uint8_t addr);
 		void write8(uint8_t reg, uint8_t val);
 		uint8_t readParam(uint8_t p);
 		uint8_t writeParam(uint8_t p, uint8_t v);
-		uint8_t _addr;
 };
 	
