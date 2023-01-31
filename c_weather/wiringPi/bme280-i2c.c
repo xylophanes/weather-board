@@ -3,6 +3,10 @@
 #include <wiringPiI2C.h>
 #include "bme280-i2c.h"
 
+int bme280Fd;
+
+struct bme280_t bme280;
+
 s32 bme280_begin(const char *device)
 {
 	s32 com_rslt = 0;
