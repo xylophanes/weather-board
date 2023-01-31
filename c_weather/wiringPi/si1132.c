@@ -2,6 +2,8 @@
 #include <wiringPiI2C.h>
 #include "si1132.h"
 
+int si1132Fd;
+
 int si1132_begin(const char *device)
 {
 	si1132Fd = wiringPiI2CSetupInterface(device, Si1132_ADDR);

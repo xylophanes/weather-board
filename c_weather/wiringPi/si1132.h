@@ -1,3 +1,5 @@
+#ifndef __SI1132_H__
+#define __SI1132_H__
 /* COMMANDS */
 #define Si1132_PARAM_QUERY	0x80
 #define Si1132_PARAM_SET	0xA0
@@ -74,8 +76,6 @@
 
 #define Si1132_ADDR 0x60
 
-int si1132Fd;
-
 int si1132_begin(const char *device);
 void initialize(void);
 void reset();
@@ -85,3 +85,4 @@ float Si1132_readIR();
 float Si1132_readUV();
 
 void Si1132_I2C_writeParam(unsigned char param, unsigned char val);
+#endif //__SI1132_H__
