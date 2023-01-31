@@ -1,3 +1,5 @@
+#ifndef __SI702X_H__
+#define __SI702X_H__
 /* Commands */
 #define CMD_MEASURE_HUMIDITY_HOLD	0xE5
 #define CMD_MEASURE_HUMIDITY_NO_HOLD	0xF5
@@ -43,10 +45,9 @@
 #define COEFFICIENT_BASE		0x82
 #define COEFFICIENT_COUNT		9
 
-int si702xFd;
-
 int si702x_begin(const char *device);
 float Si702x_readTemperature(void);
 float Si702x_readHumidity(void);
 unsigned short Si702x_I2C_read16(unsigned char reg);
 void Si702x_I2C_write8(unsigned char val);
+#endif //__SI702X_H__

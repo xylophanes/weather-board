@@ -1,4 +1,5 @@
-
+#ifndef __BMP180_H__
+#define __BMP180_H__
 #define BMP180_ADDRESS		0x77
 
 #define BMP180_ULTRALOWPOWER	0
@@ -27,13 +28,6 @@
 #define BMP180_READTEMPCMD	0x2E
 #define BMP180_READPRESSURECMD	0x34
 
-int bmp180Fd;
-
-short ac1, ac2, ac3, b1, b2, mb, mc, md;
-unsigned short ac4, ac5, ac6;
-
-unsigned char oversampling;
-
 int bmp180_begin(const char *device);
 void BMP180_I2C_writeCommand(unsigned char reg, unsigned char value);
 unsigned char BMP180_I2C_read8(unsigned char reg);
@@ -51,3 +45,4 @@ float BMP180_readTemperature(void);
 
 float BMP180_readSealevelPressure(float altitude_meters);
 float BMP180_readAltitude(float sealevelPressure);
+#endif //__BMP180_H__
