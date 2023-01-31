@@ -4,6 +4,8 @@
 #include <linux/i2c-dev.h>
 #include "si702x.h"
 
+int si702xFd;
+
 int si702x_begin(const char *device)
 {
 	int status = 0;
