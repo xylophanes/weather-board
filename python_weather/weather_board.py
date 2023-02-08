@@ -10,7 +10,11 @@ if len(sys.argv) != 2:
     sys.exit()
 
 si1132 = SI1132.SI1132(sys.argv[1])
-bme280 = BME280.BME280(sys.argv[1], 0x03, 0x02, 0x02, 0x02)
+bme280 = BME280.BME280(sys.argv[1],
+        BME280.power_mode['BME280_NORMAL_MODE'],
+        BME280.oversampl['BME280_OVERSAMP_1X'],
+        BME280.oversampl['BME280_OVERSAMP_1X'],
+        BME280.oversampl['BME280_OVERSAMP_1X'])
 
 def get_altitude(pressure, seaLevel):
     atmospheric = pressure / 100.0
