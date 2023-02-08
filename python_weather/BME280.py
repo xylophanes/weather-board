@@ -14,6 +14,15 @@ power_mode = {
         "BME280_SOFT_RESET_CODE"    : 0xB6,
 }
 
+oversampl = {
+    "BME280_OVERSAMP_SKIPPED"       : 0x00,
+    "BME280_OVERSAMP_1X"            : 0x01,
+    "BME280_OVERSAMP_2X"            : 0x02,
+    "BME280_OVERSAMP_4X"            : 0x03,
+    "BME280_OVERSAMP_8X"            : 0x04,
+    "BME280_OVERSAMP_16X"           : 0x05,
+}
+
 regs = {
         "BME280_CHIP_ID_REG"            : 0xD0,
         "BME280_RST_REG"                : 0xE0,
