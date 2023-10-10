@@ -1,5 +1,7 @@
-#ifndef __BMP180_H__
-#define __BMP180_H__
+/*---------*/
+/* Defines */
+/*---------*/
+
 #define BMP180_ADDRESS		0x77
 
 #define BMP180_ULTRALOWPOWER	0
@@ -28,21 +30,47 @@
 #define BMP180_READTEMPCMD	0x2E
 #define BMP180_READPRESSURECMD	0x34
 
-int bmp180_begin(const char *device);
-void BMP180_I2C_writeCommand(unsigned char reg, unsigned char value);
-unsigned char BMP180_I2C_read8(unsigned char reg);
-unsigned short BMP180_I2C_read16(unsigned char reg);
-short BMP180_I2C_reads6(unsigned char reg);
 
-void readCoefficients(void);
-float readRawTemperature();
-float readRawPressure();
+/*--------------------*/
+/* Imported variables */
+/*--------------------*/
 
-int computeB5(int ut);
+extern int bmp180Fd;
 
-float BMP180_readPressure(void);
-float BMP180_readTemperature(void);
+extern short ac1,
+             ac2,
+	     ac3,
+	     b1,
+	     b2,
+	     mb,
+	     mc,
+	     md;
 
-float BMP180_readSealevelPressure(float altitude_meters);
-float BMP180_readAltitude(float sealevelPressure);
-#endif //__BMP180_H__
+extern unsigned short ac4,
+                      ac5,
+		      ac6;
+
+extern unsigned char oversampling;
+
+
+/*--------------------*/
+/* Imported functions */
+/*--------------------*/
+
+extern int            bmp180_begin(const char *device);
+extern void           BMP180_I2C_writeCommand(unsigned char reg, unsigned char value);
+extern unsigned char  BMP180_I2C_read8(unsigned char reg);
+extern unsigned short BMP180_I2C_read16(unsigned char reg);
+extern short          BMP180_I2C_reads6(unsigned char reg);
+
+extern void           readCoefficients(void);
+extern float          readRawTemperature();
+extern float          readRawPressure();
+
+extern int            computeB5(int ut);
+
+extern float          BMP180_readPressure(void);
+extern float          BMP180_readTemperature(void);
+
+extern float          BMP180_readSealevelPressure(float altitude_meters);
+extern float          BMP180_readAltitude(float sealevelPressure);

@@ -1,16 +1,47 @@
+/*---------------------------------------------
+ * Modified by M.A. O'Neill, Tumbling Dice 2023
+ * to exit on error
+ *-------------------------------------------*/
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <math.h>
+#include <sys/ioctl.h>
 #include <linux/i2c-dev.h>
 #include "bmp180.h"
 
-int bmp180Fd;
+#define FALSE  0
+#define TRUE   255
+extern int     do_verbose;
 
-short ac1, ac2, ac3, b1, b2, mb, mc, md;
-unsigned short ac4, ac5, ac6;
+
+/*------------------*.
+/* Global variables */
+/*------------------*/
+
+int   bmp180Fd;
+
+short ac1,
+      ac2,
+      ac3,
+      b1,
+      b2,
+      mb,
+      mc,
+      md;
+
+unsigned short ac4,
+               ac5,
+               ac6;
 
 unsigned char oversampling;
+
+
+/*-----------*/
+/* Functions */
+/*-----------*/
 
 int bmp180_begin(const char *device)
 {
@@ -18,44 +49,63 @@ int bmp180_begin(const char *device)
 
 	bmp180Fd = open(device, O_RDWR);
 	if (bmp180Fd < 0) {
-		printf("ERROR: bmp180 open failed\n");
-		return -1;
+
+		if(do_verbose == TRUE) {
+			(void)fprintf(stderr,"    weather_board ERROR: bmp180 open failed\n");
+			(void)fflush(stderr);
+		}
+
+		exit(-1);
 	}
 
 	status = ioctl(bmp180Fd, I2C_SLAVE, BMP180_ADDRESS);
 	if (status < 0) {
-		printf("ERROR: bmp180 ioctl error\n");
-		close(bmp180Fd);
-		return -1;
+		if(do_verbose == TRUE) {
+			(void)fprintf(stderr,"    weather_board ERROR: bmp180 ioctl error\n");
+			(void)fflush(stderr);
+		}
+
+		(void)close(bmp180Fd);
+		exit(-1);
 	}
 
 	if (BMP180_I2C_read8(BMP180_CHIPID) != 0x55) {
-		printf("ERROR: bmp180 read failed the PART ID\n");
-		return -1;
+
+		if(do_verbose == TRUE) {
+			(void)fprintf(stderr,"    weather_board ERROR: bmp180 read failed the PART ID\n");
+			(void)fflush(stderr);
+		}
+
+		exit(-1);
 	}
 	readCoefficients();
 }
 
 void BMP180_I2C_writeCommand(unsigned char reg, unsigned char value)
 {
-	unsigned char wbuf[2];
+	unsigned char wbuf[2] = "";
+
 	wbuf[0] = reg;
 	wbuf[1] = value;
-	write(bmp180Fd, wbuf, 2);
+
+	(void)write(bmp180Fd, wbuf, 2);
 }
 
 unsigned char BMP180_I2C_read8(unsigned char reg)
 {
-	write(bmp180Fd, &reg, 1);
-	read(bmp180Fd, &reg, 1);
+	(void)write(bmp180Fd, &reg, 1);
+	(void)read(bmp180Fd, &reg, 1);
+
 	return reg;
 }
 
 unsigned short BMP180_I2C_read16(unsigned char reg)
 {
-	unsigned char rbuf[2];
-	write(bmp180Fd, &reg, 1);
-	read(bmp180Fd, rbuf, 2);
+	unsigned char rbuf[2] = "";
+
+	(void)write(bmp180Fd, &reg, 1);
+	(void)read(bmp180Fd, rbuf, 2);
+
 	return (unsigned short)(rbuf[0] << 8 | rbuf[1]);
 }
 
@@ -74,17 +124,19 @@ void readCoefficients(void)
 	ac4 = BMP180_I2C_read16(BMP180_CAL_AC4);
 	ac5 = BMP180_I2C_read16(BMP180_CAL_AC5);
 	ac6 = BMP180_I2C_read16(BMP180_CAL_AC6);
-	b1 = BMP180_I2C_reads16(BMP180_CAL_B1);
-	b2 = BMP180_I2C_reads16(BMP180_CAL_B2);
-	mb = BMP180_I2C_reads16(BMP180_CAL_MB);
-	mc = BMP180_I2C_reads16(BMP180_CAL_MC);
-	md = BMP180_I2C_reads16(BMP180_CAL_MD);
+
+	b1  = BMP180_I2C_reads16(BMP180_CAL_B1);
+	b2  = BMP180_I2C_reads16(BMP180_CAL_B2);
+
+	mb  = BMP180_I2C_reads16(BMP180_CAL_MB);
+	mc  = BMP180_I2C_reads16(BMP180_CAL_MC);
+	md  = BMP180_I2C_reads16(BMP180_CAL_MD);
 }
 
 float readRawTemperature()
 {
 	BMP180_I2C_writeCommand(BMP180_CONTROL, BMP180_READTEMPCMD);
-	usleep(5000);
+	(void)usleep(5000);
 
 	return BMP180_I2C_read16(BMP180_TEMPDATA);
 }
@@ -96,13 +148,13 @@ float readRawPressure()
 	BMP180_I2C_writeCommand(BMP180_CONTROL, BMP180_READPRESSURECMD + (oversampling << 6));
 
 	if (oversampling == BMP180_ULTRALOWPOWER)
-		usleep(5000);
+		(void)usleep(5000);
 	else if (oversampling == BMP180_STANDARD)
-		usleep(8000);
+		(void)usleep(8000);
 	else if (oversampling == BMP180_HIGHRES)
-		usleep(14000);
+		(void)usleep(14000);
 	else
-		usleep(26000);
+		(void)usleep(26000);
 
 	raw = BMP180_I2C_read16(BMP180_PRESSUREDATA);
 
@@ -122,8 +174,18 @@ int computeB5(int ut)
 
 float BMP180_readPressure(void)
 {
-	int UT, UP, B3, B5, B6, X1, X2, X3, p;
-	unsigned int B4, B7;
+	int UT,
+	    UP,
+	    B3,
+	    B5,
+	    B6,
+	    X1,
+	    X2,
+	    X3,
+	    p;
+
+	unsigned int B4,
+		     B7;
 
 	UT = readRawTemperature();
 	UP = readRawPressure();
@@ -142,43 +204,48 @@ float BMP180_readPressure(void)
 	B7 = ((unsigned int)UP - B3) * (unsigned int)(50000UL >> oversampling);
 
 	if (B7 < 0x80000000) {
-	  p = (B7 * 2) / B4;
-	} else {
+	   p = (B7 * 2) / B4;
+	}
+	
+	else {
 	  p = (B7 / B4) * 2;
 	}
+
 	X1 = (p >> 8) * (p >> 8);
 	X1 = (X1 * 3038) >> 16;
 	X2 = (-7357 * p) >> 16;
 	
 	p = p + ((X1 + X2 + (int)3791)>>4);
 	
-	return p;
+	return(p);
 }
 
 float BMP180_readTemperature(void)
 {
-	int UT, B5;
+	int   UT,
+	      B5;
+
 	float temp;
 
-	UT = readRawTemperature();
-
-	B5 = computeB5(UT);
+	UT   = readRawTemperature();
+	B5   = computeB5(UT);
 	temp = (B5+8) >> 4;
 	temp /= 10;
-	return temp;
+
+	return(temp);
 }
 
 float BMP180_readAltitude(float sealevelPressure)
 {
-	float altitude;
-	float pressure = BMP180_readPressure();
-	altitude = 44330 * (1.0 - pow(pressure/sealevelPressure/100, 0.1903));
+	float altitude,
+	      pressure = BMP180_readPressure();
 
-	return altitude;
+	altitude = 44330 * (1.0 - pow(pressure/sealevelPressure/100, 0.1903));
+	return(altitude);
 }
 
 float BMP180_readSealevelPressure(float altitude_meters)
 {
 	float pressure = BMP180_readPressure();
-	return (int)(pressure / pow(1.0-altitude_meters/44330, 5.255));
+	return( (int)(pressure / pow(1.0-altitude_meters/44330, 5.255)));
 }
