@@ -1,5 +1,4 @@
-Weather Board
-=============
+## Weather Board
 
 This is a project for the WEATHER-BOARD which tidies up the code on the Odroid GitHub and adds some new functionality.
 
