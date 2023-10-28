@@ -115,18 +115,18 @@ void initialize(void)
 	usleep(10000);
 
 	Si1132_I2C_write8(Si1132_REG_MEASRATE0, 0xFF);
-	Si1132_I2C_write8(Si1132_REG_COMMAND, Si1132_ALS_AUTO);
+	Si1132_I2C_write8(Si1132_REG_COMMAND,   Si1132_ALS_AUTO);
 }
 
-void reset()
+void reset(void)
 {
 	Si1132_I2C_write8(Si1132_REG_MEASRATE0, 0);
 	Si1132_I2C_write8(Si1132_REG_MEASRATE1, 0);
-	Si1132_I2C_write8(Si1132_REG_IRQEN, 0);
-	Si1132_I2C_write8(Si1132_REG_IRQMODE1, 0);
-	Si1132_I2C_write8(Si1132_REG_IRQMODE2, 0);
-	Si1132_I2C_write8(Si1132_REG_INTCFG, 0);
-	Si1132_I2C_write8(Si1132_REG_IRQSTAT, 0xFF);
+	Si1132_I2C_write8(Si1132_REG_IRQEN,     0);
+	Si1132_I2C_write8(Si1132_REG_IRQMODE1,  0);
+	Si1132_I2C_write8(Si1132_REG_IRQMODE2,  0);
+	Si1132_I2C_write8(Si1132_REG_INTCFG,    0);
+	Si1132_I2C_write8(Si1132_REG_IRQSTAT,   0xFF);
 
 	Si1132_I2C_write8(Si1132_REG_COMMAND, Si1132_RESET);
 	(void)usleep(10000);
@@ -135,22 +135,40 @@ void reset()
 	(void)usleep(10000);
 }
 
-float Si1132_readVisible()
-{
+float Si1132_readVisible(void)
+{	float ret;
+
 	(void)usleep(10000);
-	return ((Si1132_I2C_read16(0x22) - 256)/0.282)*14.5;
+	ret = ((float)(Si1132_I2C_read16(0x22) - 256)/0.282) *14.5;
+
+	if (ret < 0.0)
+           ret = 0.0;
+
+	return ret;
 }
 
-float Si1132_readIR()
-{
+float Si1132_readIR(void)
+{	float ret;
+
 	(void)usleep(10000);
-	return ((Si1132_I2C_read16(0x24) - 250)/2.44)*14.5;
+	ret = ((float)(Si1132_I2C_read16(0x24) - 250)/2.44)*14.5;
+
+	if (ret < 0.0)
+           ret = 0.0;
+
+	return ret;
 }
 
-float Si1132_readUV()
-{
+float Si1132_readUV(void)
+{	float ret;
+
 	(void)usleep(10000);
-	return Si1132_I2C_read16(0x2c);
+	ret = (float)Si1132_I2C_read16(0x2c);
+
+	if (ret < 0.0)
+           ret = 0.0;
+
+	return ret;
 }
 
 unsigned char Si1132_I2C_read8(unsigned char reg)
@@ -158,7 +176,7 @@ unsigned char Si1132_I2C_read8(unsigned char reg)
 	unsigned char ret;
 
 	(void)write(si1132Fd, &reg, 1);
-	(void)read(si1132Fd, &ret, 1);
+	(void)read(si1132Fd, &ret,  1);
 
 	return ret;
 }
@@ -168,7 +186,7 @@ unsigned short Si1132_I2C_read16(unsigned char reg)
 	unsigned char rbuf[2];
 
 	(void)write(si1132Fd, &reg, 1);
-	(void)read(si1132Fd, rbuf, 2);
+	(void)read(si1132Fd, rbuf,  2);
 
 	return (unsigned short)(rbuf[0] | rbuf[1] << 8);
 }

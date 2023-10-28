@@ -1,5 +1,5 @@
 CC=gcc
-CFLAG=-g
+CFLAG=--O3
 OBJGROUP=bme280.o bme280-i2c.o si1132.o si702x.o bmp180.o weather_board.o
 
 all: weather_board

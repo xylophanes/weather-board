@@ -10,6 +10,8 @@
 #include <signal.h>
 #include <time.h>
 #include <sys/timeb.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "bme280-i2c.h"
 #include "si1132.h"
 #include "si702x.h"
@@ -23,81 +25,162 @@
 /* Weatheboard version number */
 /*----------------------------*/
 
-#define VERSION "3.00"
+#define WEATHERBOARD_VERSION "3.00"
 
-#define FALSE   0
-#define TRUE    255
+
+/*-------------------------------*/
+/* Default sensor polling period */
+/*-------------------------------*/
+
+#define DEFAULT_UPDATE_PERIOD  60
+
+
+/*----------------*/
+/* Boolean values */
+/*----------------*/
+
+#define FALSE                  0
+#define TRUE                   255
+#define _BOOLEAN               int
+#define _PRIVATE               static
+#define _PUBLIC
+
+
+/*-------------*/
+/* String size */
+/*-------------*/
+
+#define SSIZE                  256
 
 
 /*------------------*/
 /* Global variables */
 /*------------------*/
 
-int do_verbose    = FALSE;
+_PUBLIC   _BOOLEAN do_verbose                         = FALSE;
 
 
-/*-------*/
-/* Local */
-/*-------*/
+/*-----------------*/
+/* Local variables */
+/*-----------------*/
 
-static int    i2c_address             = 0x76;
-static float  uv_index;
-static float  vis;
-static float  ir;
-static float  pressure;
-static float  temperature;
-static float  humidity;
-static float  dew_point;
-static float  altitude;
-static char   logfile_name[256]       = "";
-static char   rollover_timeStr[256]   = "";
-static char   rollover_periodStr[256] = "";
-static int    do_rollover             = FALSE;
-static int    do_rollstop             = FALSE;
-static int    do_rollcont             = FALSE;
-static int    do_rollover_enabled     = FALSE;
-static time_t rperiod                 = (-1);
-static time_t nowsecs                 = (-1);
-static time_t rollsecs                = (-1);
-
-
+_PRIVATE int               i2c_address                = 0x76;
+_PRIVATE float             uv_index;
+_PRIVATE float             vis;
+_PRIVATE float             ir;
+_PRIVATE float             pressure;
+_PRIVATE float             temperature;
+_PRIVATE float             humidity;
+_PRIVATE float             dew_point;
+_PRIVATE float             altitude;
+_PRIVATE unsigned char     logfile_name[SSIZE]        = "";
+_PRIVATE unsigned char     rollover_timeStr[SSIZE]    = "";
+_PRIVATE unsigned char     rollover_periodStr[SSIZE]  = "";
+_PRIVATE  _BOOLEAN          do_rollover               = FALSE;
+_PRIVATE  _BOOLEAN          do_rollover_enabled       = FALSE;
+_PRIVATE time_t            rperiod                    = (-1);
+_PRIVATE time_t            nowsecs                    = (-1);
+_PRIVATE time_t            rollsecs                   = (-1);
 
 
 /*--------------------------*/
 /* For altitude calculation */
 /*--------------------------*/
 
-float SEALEVELPRESSURE_HPA = 1024.25;
+_PRIVATE float              SEALEVELPRESSURE_HPA      = 1024.25;
 
 
 
 
-/*-----------------
- * Clear the screen
- *---------------*/
+/*------------------*/
+/* Clear the screen */
+/*------------------*/
 
-void clearScreen(void)
+_PRIVATE void clearScreen(void)
 {
   const char* CLEAR_SCREE_ANSI = "\e[1;1H\e[2J";
-  write(STDOUT_FILENO,CLEAR_SCREE_ANSI,12);
+  (void)write(STDOUT_FILENO,CLEAR_SCREE_ANSI,12);
 }
 
 
 
 
-/*---------------------------------------------
- * Handle SIGUSR1 which forces a (log) rollover
- * SIGUSR2 which stops data collection
- *-------------------------------------------*/
+/*----------------*/
+/* Handle signals */
+/*----------------*/
 
-static int signal_handler(int signum)
+_PRIVATE int signal_handler(unsigned int signum)
 
-{	if(signum == SIGUSR1)
+{	if (signum == SIGUSR1) {
+	   if (do_rollover_enabled == TRUE)
 		do_rollover = TRUE;
-	else if(signum == SIGUSR2)
-		do_rollstop = TRUE;
-	else if(signum == SIGCONT)
-		do_rollcont = TRUE;
+        }
+
+
+	/*------*/
+	/* Exit */
+	/*------*/
+
+	else if (signum == SIGABRT  ||
+	         signum == SIGQUIT  ||
+	         signum == SIGINT   ||
+		 signum == SIGHUP   ||
+		 signum == SIGTERM   )
+        {  (void)unlink("/tmp/weatherpipe");
+
+	   if (do_verbose == TRUE)
+           {  (void)fprintf(stderr,"\n    weather-board: **** aborted\n\n");
+	      (void)fflush(stderr);
+           }
+  
+	   exit (255);
+	}
+
+
+	/*--------------------------------*/
+	/* Broken weatherpipe (no reader) */
+	/*--------------------------------*/
+
+
+	else if (signum == SIGPIPE) {
+	   if (do_verbose == TRUE)
+           {  (void)fprintf(stderr,"\n    weather-board WARNING: weatherpipe has no reader\n\n");
+	      (void)fflush(stderr);
+           }
+	}
+
+
+	/*---------------------------*/
+	/* Write data to weatherpipe */
+	/*---------------------------*/
+
+	else if (signum == SIGUSR2)
+	{  FILE          *pipestream         = (FILE *)NULL;
+           unsigned char datetimeStr[SSIZE]  = "";
+
+
+	   if ((pipestream = fopen("/tmp/weatherpipe","w")) == (FILE *)NULL) {
+	      if (do_verbose == TRUE)
+              {  (void)fprintf(stderr,"\n    weather-board WARNING: failed to open weatherpipe for writingr\n\n");
+	         (void)fflush(stderr);
+              }
+	   }
+	
+
+	   else {
+              (void)fprintf(pipestream,"%s  uvi: %8.2f  vis: %8.2f lux  ir: %8.2f lux  temp: %8.2f C  humidity: %8.2f %%  dew point %8.2f C  pressure: %8.2f hpa\n",
+                                                                                                                                                        datetimeStr,
+                                                                                                                                                           uv_index,
+                                                                                                                                                                vis,
+                                                                                                                                                                 ir,
+                                                                                                                                                        temperature,
+                                                                                                                                                           humidity,
+                                                                                                                                                          dew_point,
+                                                                                                                                                           pressure);
+              (void)fflush(pipestream);
+	      (void)fclose(pipestream);
+	   }
+        }
 
 	return(0);
 }
@@ -105,28 +188,23 @@ static int signal_handler(int signum)
 
 
 
-/*--------------------------------------------------
- *  Get current time and date in human readable form
- -------------------------------------------------*/
+/*---------------------------------------------------*/
+/*  Get current time and date in human readable form */
+/*---------------------------------------------------*/
 
-void strhostdate(char *date, char *time, char *datetime)
+_PRIVATE void strhostdate(unsigned char *date, char *time, unsigned char *datetime)
 
 {   time_t tval;
     double usecs;
 
-    char f1[256]        = "",
-         f2[256]        = "",
-         f3[256]        = "",
-         f4[256]        = "",
-         strusecs[256]  = "",
-	 tmpdate[256]   = "";
+    unsigned char f1[SSIZE]        = "",
+                  f2[SSIZE]        = "",
+                  f3[SSIZE]        = "",
+                  f4[SSIZE]        = "",
+                  strusecs[SSIZE]  = "",
+	          tmpdate[SSIZE]   = "";
 
-    //struct timeb tspec;
     struct timespec tspec;
-
-    //(void)ftime(&tspec);
-    //tval     = (time_t)tspec.time;
-    //usecs    = (double)tspec.millitm/1000.0;
 
     (void)clock_gettime(CLOCK_REALTIME,&tspec);
     tval  = tspec.tv_sec;
@@ -141,7 +219,7 @@ void strhostdate(char *date, char *time, char *datetime)
     /* Fill in time field */
     /*--------------------*/
 
-    if(time != (char *)NULL)
+    if (time != (char *)NULL)
        (void)sprintf(time,"%s",f4);
 
 
@@ -149,7 +227,7 @@ void strhostdate(char *date, char *time, char *datetime)
     /* Fill in abridged date field */
     /*-----------------------------*/
 
-    if(date != (char *)NULL)
+    if (date != (unsigned char *)NULL)
        (void)sprintf(date,"%s.%s",f3,f2);
 
 
@@ -157,12 +235,35 @@ void strhostdate(char *date, char *time, char *datetime)
     /* Fill in fully qualified date field */
     /*------------------------------------*/
 
-    if(datetime != (char *)NULL) {
+    if (datetime != (unsigned char *)NULL) {
        (void)sprintf(strusecs,"%.2f",usecs);
        (void)sprintf(datetime,"%s.%s.%s-%s",f1,f2,f3,f4);
     }
 }
 
+
+
+
+/*-------------------------------------------------------*/
+/* TRUE if /dev/null opened on specified file descriptor */
+/*-------------------------------------------------------*/
+
+_PRIVATE _BOOLEAN datasink(int fdes)
+
+{   unsigned char link[SSIZE]    = "",
+	          procStr[SSIZE] = "";
+		  ;
+    ssize_t       rval;
+
+    (void)snprintf(procStr,SSIZE,"/proc/self/fd/%d",fdes);
+    rval       = readlink(procStr,link,sizeof(link));
+    link[rval] = '\0';
+
+    if (strcmp(link, "/dev/null") == 0)
+       return(TRUE);
+
+    return(FALSE);
+}
 
 
 /*------------------*/
@@ -171,53 +272,57 @@ void strhostdate(char *date, char *time, char *datetime)
 
 int main(int argc, char *argv[])
 {
-	int  i;
-	int  now;
-	int  rhour;
-	int  rminute;
-	int  rsecond;
-	int  hour;
-	int  minute;
-	int  second;
-	int  tty_mode              = FALSE;
-	int  t_period              = 10;
-	int  status                = 0;
-	int  WBVersion             = 2;
-	int  argd                  = 1;
-	char *device               = "/dev/i2c-1";
-	char rollover_timeStr[256] = "";
-	char eff_logfile_name[256] = "";
-	char dateStr[256]          = "";
-	char timeStr[256]          = "";
-	char datetimeStr[256]      = "";
-	FILE *stream               = (FILE *)NULL;
+	unsigned int   i;
+	unsigned int   now;
+	unsigned int   rhour;
+	unsigned int   rminute;
+	unsigned int   rsecond;
+	unsigned int   hour;
+	unsigned int   minute;
+	unsigned int   second;
+	_BOOLEAN       tty_mode                 = FALSE;
+	unsigned int   update_period            = DEFAULT_UPDATE_PERIOD;
+	unsigned int   status                   = 0;
+	unsigned int   WBVersion                = 2;
+	unsigned int   argd                     = 1;
+	unsigned char  *device                  = "/dev/i2c-1";
+	unsigned char  rollover_timeStr[SSIZE]  = "";
+	unsigned char  eff_logfile_name[SSIZE]  = "";
+	unsigned char  dateStr[SSIZE]           = "";
+	unsigned char  timeStr[SSIZE]           = "";
+	unsigned char  datetimeStr[SSIZE]       = "";
+	FILE           *stream                  = (FILE *)NULL;
 
 
         /*--------------------*/
         /* Parse command tail */
         /*--------------------*/
 
-	if(argc > 1) {
-		for(i=0; i<argc; ++i) {
+	if (argc > 1) {
+		for (i=0; i<argc; ++i) {
 
 
 		   /*--------------------------*/
 		   /* Display help information */
 		   /*--------------------------*/
 
-		   if(strcmp(argv[1],"-help") == 0 || strcmp(argv[1],"-usage") == 0) {
-		      (void)fprintf(stderr,"\n    Weather Board (version %s)\n",VERSION);
+		   if (strcmp(argv[1],"-help") == 0 || strcmp(argv[1],"-usage") == 0) {
+		      (void)fprintf(stderr,"\n    Weather Board (version %s)\n", WEATHERBOARD_VERSION);
 		      (void)fprintf(stderr,"    M.A. O'Neill, Tumbling Dice, 2016-2023\n\n");
    		      (void)fprintf(stderr,"    Usage : [sudo] weather_board [-usage | -help]\n");
        		      (void)fprintf(stderr,"            |\n");
-	              (void)fprintf(stderr,"            [-pperiod <secs:60>]\n");
-             	      (void)fprintf(stderr,"            [-logfile <file name> [-rollover <hh:mm:ss:00:00:00> | -rperiod <hh:mm:ss>]]\n");
+	              (void)fprintf(stderr,"            [-uperiod <update period in secs:%d>]\n", DEFAULT_UPDATE_PERIOD);
+             	      (void)fprintf(stderr,"            [-ttymode:FALSE] | [-logfile <log file name> [-rollover <hh:mm:ss:00:00:00> | -rperiod <hh:mm:ss>]]\n");
               	      (void)fprintf(stderr,"            [i2c node:/dev/i2c-1]\n");
 	              (void)fprintf(stderr,"            [ >& <error/status log>]\n\n");
-	              (void)fprintf(stderr,"            Signals\n\n");
-	              (void)fprintf(stderr,"            SIGUSR1: force rollover\n");
-	              (void)fprintf(stderr,"            SIGUSR2: stop data collection\n");
-	              (void)fprintf(stderr,"            SIGCONT: resume data collection\n\n");
+	              (void)fprintf(stderr,"            Signals\n");
+	              (void)fprintf(stderr,"            =======\n\n");
+	              (void)fprintf(stderr,"            SIGUSR1  (%02d): force file rollover\n\n", SIGUSR1);
+		      (void)fprintf(stderr,"            SIGINT   (%02d):\n", SIGINT);
+		      (void)fprintf(stderr,"            SIGQUIT  (%02d):\n", SIGQUIT);
+		      (void)fprintf(stderr,"            SIGHUP   (%02d):\n", SIGHUP);
+		      (void)fprintf(stderr,"            SIGERM   (%02d): exit gracefully\n\n", SIGTERM);
+	              (void)fprintf(stderr,"            SIGUSR2  (%02d): write latest data to weatherpipe\n\n", SIGUSR2);
                       (void)fflush(stderr);
 
 	              exit(1);
@@ -228,35 +333,55 @@ int main(int argc, char *argv[])
 	           /* Verbosity flag */
 	           /*----------------*/
 
-	           else if(strcmp(argv[i],"-verbose") == 0) {
+	           else if (strcmp(argv[i],"-verbose") == 0) {
 	              do_verbose = TRUE;
 	              ++argd;
 	           }
 
 
-	           /*-----------------*/
-	           /* Set time period */
-	           /*-----------------*/
+		   /*-------------------------------*/
+		   /* Pretty print data to terminal */
+		   /*-------------------------------*/
 
-	           else if(strcmp(argv[i],"-pperiod") == 0) {
- 	              if(i == argc - 1 || argv[i + 1][0] == '-') {
+		   else if (strcmp(argv[i+1],"ttymode") == 0)
+		   {  tty_mode = TRUE;
+                      ++argd;
+                   }
 
-		         if(do_verbose == TRUE) {
-		            (void)fprintf(stderr,"weatherboard ERROR: expecting time period in seconds\n");
+
+	           /*-------------------*/
+	           /* Set update period */
+	           /*-------------------*/
+
+	           else if (strcmp(argv[i],"-uperiod") == 0) {
+ 	              if (i == argc - 1 || argv[i + 1][0] == '-') {
+
+
+			 /*-------*/
+			 /* Error */
+			 /*-------*/
+
+		         if (do_verbose == TRUE) {
+		            (void)fprintf(stderr,"    weatherboard ERROR: expecting update period in seconds\n");
 		            (void)fflush(stderr);
 		         }
 
-		         exit(-1);
+		         exit(255);
                       }
 
-                      if(sscanf(argv[i+1],"%d",&t_period) != 1 || t_period <= 0) {
+                      if (sscanf(argv[i+1],"%d",&update_period) != 1 || update_period <= 0) {
 
-   		         if(do_verbose == TRUE) {
-		            (void)fprintf(stderr,"weatherboard ERROR: expecting time period in seconds (integer > 0)\n");
+
+			 /*-------*/
+			 /* Error */
+			 /*-------*/
+
+   		         if (do_verbose == TRUE) {
+		            (void)fprintf(stderr,"    weatherboard ERROR: expecting time period in seconds (integer > 0)\n");
 		            (void)fflush(stderr);
 		         }
 
-		         exit(-1);
+		         exit(255);
 	              }
 
 	              argd += 2;
@@ -268,21 +393,24 @@ int main(int argc, char *argv[])
 	           /* Set logfile name */
 	           /*------------------*/
 
-                   else if(strcmp(argv[i],"-logfile") == 0) {
-                      if(i == argc - 1 || argv[i+1][0] == '-') {
+                   else if (strcmp(argv[i],"-logfile") == 0) {
 
-                         if(do_verbose == TRUE) {
-                            (void)fprintf(stderr,"weatherboard ERROR: expecting logfile name\n");
+
+		      /*-------*/
+		      /* Error */
+		      /*-------*/
+
+                      if (i == argc - 1 || argv[i+1][0] == '-') {
+
+                         if (do_verbose == TRUE) {
+                            (void)fprintf(stderr,"    weatherboard ERROR: expecting logfile name\n");
                             (void)fflush(stderr);
                          }
 
-                         exit(-1);
+                         exit(255);
                       }
 
-   	              if(strcmp(argv[i+1],"tty") == 0)
-		         tty_mode = TRUE;
-	              else
-	                 (void)strcpy(logfile_name,argv[i+1]);
+	              (void)strcpy(logfile_name,argv[i+1]);
 
                       argd += 2;
                       ++i;
@@ -294,15 +422,21 @@ int main(int argc, char *argv[])
 	           /*---------------------------*/
 
 
-                   else if(rperiod == (-1) && strcmp(logfile_name,"") != 0 && strcmp(logfile_name,"tty") && strcmp(argv[i],"-rollover") == 0) {
-                      if(i == argc -1 || argv[i + 1][0] == '-') {
+                   else if (rperiod == (-1) && strcmp(logfile_name,"") != 0 && strcmp(logfile_name,"tty") && strcmp(argv[i],"-rollover") == 0) {
 
-                         if(do_verbose == TRUE) {
-                            (void)fprintf(stderr,"weatherboard ERROR: expecting rollover time <hh:mm:ss> (24 hour clock)\n");
+
+		      /*-------*/
+		      /* Error */
+		      /*-------*/
+
+                      if (i == argc -1 || argv[i + 1][0] == '-') {
+
+                         if (do_verbose == TRUE) {
+                            (void)fprintf(stderr,"    weatherboard ERROR: expecting rollover time <hh:mm:ss> (24 hour clock)\n");
                             (void)fflush(stderr);
                          }
 
-                         exit(-1);
+                         exit(255);
                       }
 
                       (void)strcpy(rollover_timeStr,argv[i+1]);
@@ -318,26 +452,37 @@ int main(int argc, char *argv[])
                    /*---------------------------*/
 
 
-                   else if(strcmp(rollover_timeStr,"") == 0 && strcmp(logfile_name,"") != 0 && strcmp(logfile_name,"tty") && strcmp(argv[i],"-rperiod") == 0) {
-                      if(i == argc -1 || argv[i + 1][0] == '-') {
+                   else if (strcmp(rollover_timeStr,"") == 0 && strcmp(logfile_name,"") != 0 && strcmp(logfile_name,"tty") && strcmp(argv[i],"-rperiod") == 0) {
 
-		         char tmpstr[256] = "";
 
-                         if(do_verbose == TRUE) {
-                            (void)fprintf(stderr,"weatherboard ERROR: expecting rollover period <hh:mm:ss> (24 hour clock)\n");
+		      /*-------*/
+		      /* Error */
+		      /*-------*/
+
+                      if (i == argc -1 || argv[i + 1][0] == '-') {
+
+		         unsigned char tmpstr[SSIZE] = "";
+
+                         if (do_verbose == TRUE) {
+                            (void)fprintf(stderr,"    weatherboard ERROR: expecting rollover period <hh:mm:ss> (24 hour clock)\n");
                             (void)fflush(stderr);
                          }
 
-                         exit(-1);
+                         exit(255);
                       }
 
-		      if(sscanf(argv[i+1],"%d:%d:%d",&hour,&minute,&second) != 3) {
-		          if(do_verbose == TRUE) {
-                            (void)fprintf(stderr,"weatherboard ERROR: expecting rollover period <hh:mm:ss> (24 hour clock)\n");
+
+		      /*--------------*/
+		      /* Format error */
+		      /*--------------*/
+
+		      if (sscanf(argv[i+1],"%d:%d:%d",&hour,&minute,&second) != 3) {
+		         if (do_verbose == TRUE) {
+                            (void)fprintf(stderr,"    weatherboard ERROR: expecting rollover period <hh:mm:ss> (24 hour clock)\n");
                             (void)fflush(stderr);
                          }
 
-                         exit(-1);
+                         exit(255);
 		      }
 
 		      (void)strcpy(rollover_periodStr,argv[i+1]);
@@ -356,16 +501,57 @@ int main(int argc, char *argv[])
 	/* Get i2c bus device name */
 	/*-------------------------*/
 
-	if(argc > 1 && argd == argc - 1)
+	if (argc > 1 && argd == argc - 1) {
+
+           if (access(argv[argd], R_OK | W_OK) == (01)) {
+
+	      if (do_verbose == TRUE) {
+                 (void)fprintf(stderr,"    weatherboard ERROR: expecting rollover period <hh:mm:ss> (24 hour clock)\n");
+                 (void)fflush(stderr);
+              }
+
+	      exit(255);
+           }
+
 	   device = argv[argd];
-	else if(argd < argc) {
-	   if(do_verbose == TRUE) {
-	      (void)fprintf(stderr,"weatherboard ERROR: unparsed command line parameters (have: %d, parsed: %d)\n",argc,argd);
+	}
+
+
+	/*-----------------------------*/
+        /* Unparsed command line items */
+	/*-----------------------------*/
+
+	else if (argd < argc) {
+	   if (do_verbose == TRUE) {
+	      (void)fprintf(stderr,"    weatherboard ERROR: unparsed command line parameters (have: %d, parsed: %d)\n",argc,argd);
 	      (void)fflush(stderr);
 	   }
 
-	    exit(-1);
+	    exit(255);
 	}
+
+
+        /*--------------------*/
+	/* Create weatherpipe */
+        /*--------------------*/
+
+        if (access("/tmp/weatherpipe", F_OK) == (-1))
+           (void)mkfifo("/tmp/weatherpipe",0666);
+
+
+
+	/*------------------------------------------------*/
+	/* Error - weather-board instance already running */
+	/*------------------------------------------------*/
+
+        else {
+	   if (do_verbose == TRUE) {
+	      (void)fprintf(stderr,"    weatherboard ERROR: unparsed command line parameters (have: %d, parsed: %d)\n",argc,argd);
+	      (void)fflush(stderr);
+	   }
+
+	    exit(255);
+        }
 
 
         /*----------------------------------------*/
@@ -374,36 +560,37 @@ int main(int argc, char *argv[])
 
 	si1132_begin(device);
 
+
         /*--------------------*/
         /* Display parameters */
         /*--------------------*/
 
-        if(do_verbose == TRUE) {
+        if (do_verbose == TRUE) {
 
-	   (void)fprintf(stderr,"\n    Weather Board (version %s)\n",VERSION);
+	   (void)fprintf(stderr,"\n    Weather Board (version %s)\n",WEATHERBOARD_VERSION);
 	   (void)fprintf(stderr,"    M.A. O'Neill, Tumbling Dice, 2016-2023\n\n");
 
-           if(strcmp(logfile_name,"tty") == 0)
+           if (strcmp(logfile_name,"tty") == 0)
               (void)fprintf(stderr,"    terminal output mode\n");
            else {
-	      if(strcmp(logfile_name,"") == 0)
+	      if (strcmp(logfile_name,"") == 0)
                  (void)fprintf(stderr,"    logfile           :  standard output\n",logfile_name);
 	      else
                  (void)fprintf(stderr,"    logfile (basename):  %s\n",logfile_name);
 
-	      if(strcmp(rollover_timeStr,"") != 0)
+	      if (strcmp(rollover_timeStr,"") != 0)
                  (void)fprintf(stderr,"    rollover time     :  %s\n",rollover_timeStr);
-	      else if(rperiod != (-1))
+	      else if (rperiod != (-1))
 		 (void)fprintf(stderr,"    rollover period   :  %s (%d seconds)\n",rollover_periodStr,rperiod);
            }
 
-           (void)fprintf(stderr,"    time period       :  %04d seconds\n",t_period);
+           (void)fprintf(stderr,"    update period     :  %04d seconds\n",update_period);
            (void)fprintf(stderr,"    i2c bus           :  %s (sensors at i2c addresses 0x%d and 0x%d)\n\n",device,Si1132_ADDR,BMP180_ADDRESS);
            (void)fflush(stderr);
         }
 
-	if(strcmp(logfile_name,"tty") == 0)
-	   (void)sleep(5);
+	//if (strcmp(logfile_name,"tty") == 0)
+	//   (void)sleep(5);
 
 	if (bme280_begin(device) < 0) {
 		si702x_begin(device);
@@ -416,20 +603,20 @@ int main(int argc, char *argv[])
 	/* Set up initial logfile */
 	/*------------------------*/
 
-	if(strcmp(logfile_name,"") != 0) {
-		if(strcmp(rollover_timeStr,"") != 0 || rperiod != (-1)) {
-			strhostdate((char *)NULL,(char *)NULL,datetimeStr);
-			(void)sprintf(eff_logfile_name,"%s.%s",logfile_name,datetimeStr);
+	if (strcmp(logfile_name,"") != 0) {
+		if (strcmp(rollover_timeStr,"") != 0 || rperiod != (-1)) {
+		   strhostdate((char *)NULL,(char *)NULL,datetimeStr);
+		   (void)sprintf(eff_logfile_name,"%s.%s",logfile_name,datetimeStr);
 		} else
-			(void)strcpy(eff_logfile_name,logfile_name);
+		    (void)strcpy(eff_logfile_name,logfile_name);
 
-		if((stream = fopen(eff_logfile_name,"w")) == (FILE *)NULL) {
-			if(do_verbose == TRUE) {
-				(void)fprintf(stderr,"weatherboard ERROR: could not open logfile \"%s\"\n",eff_logfile_name);
-				(void)fflush(stderr);
-			}
+		if ((stream = fopen(eff_logfile_name,"w")) == (FILE *)NULL) {
+		   if (do_verbose == TRUE) {
+		      (void)fprintf(stderr,"    weatherboard ERROR: could not open logfile \"%s\"\n",eff_logfile_name);
+		      (void)fflush(stderr);
+		   }
 
-			exit(-1);
+		   exit(255);
 		}
 	}
 
@@ -439,28 +626,34 @@ int main(int argc, char *argv[])
 	/* Set up signal handlers */
 	/*------------------------*/
 
-	if(strcmp(logfile_name,"") != 0 && strcmp(logfile_name,"tty") != 0) {
-	   (void)signal(SIGUSR1,(void *)&signal_handler);
-	   (void)signal(SIGUSR2,(void *)&signal_handler);
-	   (void)signal(SIGCONT,(void *)&signal_handler);
-        }
+	if (strcmp(logfile_name,"") != 0 && strcmp(logfile_name,"tty") != 0)
+	   (void)signal(SIGUSR1, (void *)&signal_handler);
+
+        (void)signal(SIGABRT, (void *)&signal_handler);
+	(void)signal(SIGQUIT, (void *)&signal_handler);
+        (void)signal(SIGINT,  (void *)&signal_handler);
+	(void)signal(SIGHUP,  (void *)&signal_handler);
+	(void)signal(SIGTERM, (void *)&signal_handler);
+        (void)signal(SIGPIPE, (void *)&signal_handler);
+	(void)signal(SIGUSR2, (void *)&signal_handler);
+
 
 	/*-----------*/
         /* Main loop */
 	/*-----------*/
 
-	if(rperiod != (-1))
+	if (rperiod != (-1))
 	   nowsecs = time((time_t *)NULL);
 
 	while (1) {
 
-		int itemperature,
-		    ihumidity,
-		    ipressure;
+		unsigned int  itemperature,
+		              ihumidity,
+		              ipressure;
 
-                char dateStr[256]     = "",
-		     timeStr[256]     = "",
-		     datetimeStr[256] = "";
+                unsigned char dateStr[SSIZE]      = "",
+		              timeStr[SSIZE]      = "",
+		              datetimeStr[SSIZE]  = "";
 
 
                 /*----------*/
@@ -474,11 +667,11 @@ int main(int argc, char *argv[])
 		/* connected to a terminal           */
 		/*-----------------------------------*/
 
-		if(tty_mode == TRUE && isatty(1) == 1) {
+		if (tty_mode == TRUE && isatty(1) == 1) {
 
 			clearScreen();
 
-			(void)fprintf(stdout,"\n    Weather Board (version %s)\n",VERSION);
+			(void)fprintf(stdout,"\n    Weather Board (version %s)\n",WEATHERBOARD_VERSION);
 	                (void)fprintf(stdout,"    M.A. O'Neill, Tumbling Dice, 2016-2023\n");
 			(void)fprintf(stdout,"\n    %s\n\n",datetimeStr);
 
@@ -506,13 +699,19 @@ int main(int argc, char *argv[])
 			}
 
 			(void)fflush(stdout);
-		        (void)sleep(t_period);
+		        (void)sleep(update_period);
 
-		} else if(stream != (FILE *)NULL) {
+		}
+	
 
-                        /*-------------------------------------*/
-                        /* Otherwise produce list style output */
-                        /*-------------------------------------*/
+	        /*----------------------*/	
+	        /* Logging data to file */
+	        /*----------------------*/
+                /*-------------------*/
+                /* List style output */
+                /*-------------------*/
+
+		else if (stream != (FILE *)NULL) {
 
                         uv_index = Si1132_readUV()/100.0;
                         vis      = Si1132_readVisible()/100.0;
@@ -539,17 +738,23 @@ int main(int argc, char *argv[])
 			/*----------------------------------------------------------------*/
 
 			dew_point   = temperature - ((100.0 - humidity) / 5.0);
-                        (void)fprintf(stream,"%s  uvi: %4.2f  vis: %6.2f lux  ir: %6.2f lux  t: %6.2f C  humidity: %4.2f %%  dew point %6.2f C  pressure: %6.2f hpa\n",
-                                                                                                                                                           datetimeStr,
-                                                                                                                                                              uv_index,
-                                                                                                                                                                   vis,
-                                                                                                                                                                    ir,
-                                                                                                                                                           temperature,
-                                                                                                                                                              humidity,
-																   		      	     dew_point,
-                                                                                                                                                              pressure);
+                        (void)fprintf(stream,"%s  uvi: %8.2f  vis: %8.2f lux  ir: %8.2f lux  temp: %8.2f C  humidity: %8.2f %%  dew point %8.2f C  pressure: %8.2f hpa\n",
+                                                                                                                                                              datetimeStr,
+                                                                                                                                                                 uv_index,
+                                                                                                                                                                      vis,
+                                                                                                                                                                       ir,
+                                                                                                                                                              temperature,
+                                                                                                                                                                 humidity,
+																   		      	        dew_point,
+                                                                                                                                                                 pressure);
                         (void)fflush(stream);
-		        (void)sleep(t_period);
+
+
+			/*-------------------------*/
+			/* Sleep until next update */
+			/*-------------------------*/
+
+		        (void)sleep(update_period);
 
 
 			/*-------------------------*/
@@ -557,8 +762,8 @@ int main(int argc, char *argv[])
 			/*-------------------------*/
 
 
-			if(do_rollover_enabled == TRUE) {
-			   if(strcmp(rollover_timeStr,"") != 0) {
+			if (do_rollover_enabled == TRUE) {
+			   if (strcmp(rollover_timeStr,"") != 0) {
 		              strhostdate(dateStr,timeStr,(char *)NULL);
 
 			      (void)sscanf(rollover_timeStr,"%d:%d:%d",&rhour,&rminute,&rsecond);
@@ -567,10 +772,10 @@ int main(int argc, char *argv[])
 			      rollsecs = (time_t)(rhour*3600 + rminute*60 + rsecond);
 			      nowsecs  = (time_t)(hour*3600  + minute*60  + second);
 
-			      if(nowsecs >= rollsecs && nowsecs < rollsecs + t_period)
+			      if (nowsecs >= rollsecs && nowsecs < rollsecs + update_period)
 			         do_rollover = TRUE;
                            }
-		           else if(time((time_t *)NULL) - nowsecs >= rperiod) {
+		           else if (time((time_t *)NULL) - nowsecs >= rperiod) {
 			      nowsecs     = time((time_t *)NULL);
 			      do_rollover = TRUE;
 			   }
@@ -581,52 +786,44 @@ int main(int argc, char *argv[])
 			/* Are we going to rollover? */
 			/*---------------------------*/
 
-			if(do_rollover == TRUE) {
+			if (do_rollover == TRUE) {
 			   (void)fclose(stream); 
 
 		           strhostdate((char *)NULL,(char *)NULL,datetimeStr);
 			   (void)sprintf(eff_logfile_name,"%s.%s",logfile_name,datetimeStr);
 
-			   if((stream = fopen(eff_logfile_name,"w")) == (FILE *)NULL) {
+			   if ((stream = fopen(eff_logfile_name,"w")) == (FILE *)NULL) {
 	
-			      if(do_verbose == TRUE) {
-			         (void)fprintf(stderr,"weatherboard ERROR: problem rolling over (new logfile \"%s\")\n",eff_logfile_name);
+			      if (do_verbose == TRUE) {
+			         (void)fprintf(stderr,"    weatherboard ERROR: problem rolling over (new logfile \"%s\")\n",eff_logfile_name);
 				 (void)fflush(stderr);
 			      } 	
 	
-		 	      (void)exit(-1);
+		 	      (void)exit(255);
 			   }
+
 			   else {
-			      if(do_verbose == TRUE) {
-                                 (void)fprintf(stderr,"weatherboard rolling over (new logfile \"%s\")\n",eff_logfile_name);
+			      if (do_verbose == TRUE) {
+                                 (void)fprintf(stderr,"    weatherboard rolling over (new logfile \"%s\")\n",eff_logfile_name);
                                  (void)fflush(stderr);
                               }
 			  }
 
 	                   do_rollover = FALSE;	
 			}
-			else if(do_rollstop == TRUE) {
+
+		}
 
 
-			   /*-------------------------*/
-			   /* Wait for rollover event */
-			   /*-------------------------*/
+	        /*----------------------------------------------------*/	
+	        /* Looging to stdout (if not redirected to /dev/null) */
+	        /*----------------------------------------------------*/
+                /*-------------------*/
+                /* List style output */
+                /*-------------------*/
 
-			   while(do_rollover == FALSE || do_rollcont == FALSE)
-				(void)sleep(1);
 
-			   if(do_rollover == TRUE)
-			      (void)fclose(stream);
-
-			   do_rollstop = FALSE;
-			   do_rollcont = FALSE;
-			}
-
-		} else {
-
-			/*-------------------------------------*/
-			/* Otherwise produce list style output */
-			/*-------------------------------------*/
+		else  {
 
 			uv_index = Si1132_readUV()/100.0;
 			vis      = Si1132_readVisible()/100.0;
@@ -653,20 +850,30 @@ int main(int argc, char *argv[])
 			/*----------------------------------------------------------------*/
 
 			dew_point   = temperature -((100.0 - humidity) / 5.0);
-			(void)fprintf(stdout,"%s  uvi: %4.2f  vis: %6.2f lux  ir: %6.2f lux  t: %6.2f C  humidity: %4.2f %%  dew point %6.2f C  pressure: %6.2f hpa\n",
-																                           datetimeStr,
-																                              uv_index,
-																                                   vis,
-																                                    ir,
-																                           temperature,
-																                              humidity,
-																			     dew_point,
-																                              pressure);
-			(void)fflush(stdout);
-		        (void)sleep(t_period);
+
+			if (datasink(1) == FALSE) {
+                           (void)fprintf(stdout,"%s  uvi: %8.2f  vis: %8.2f lux  ir: %8.2f lux  temp: %8.2f C  humidity: %8.2f %%  dew point %8.2f C  pressure: %8.2f hpa\n",
+                                                                                                                                                                 datetimeStr,
+                                                                                                                                                                    uv_index,
+                                                                                                                                                                         vis,
+                                                                                                                                                                          ir,
+                                                                                                                                                                 temperature,
+                                                                                                                                                                    humidity,
+                                                                                                                                                                   dew_point,
+                                                                                                                                                                    pressure);
+
+                           (void)fflush(stdout);
+			}
+
+
+			/*-------------------------*/
+			/* Sleep until next update */
+			/*-------------------------*/
+
+		        (void)sleep(update_period);
 		}
 
 	}
 
-	return 0;
+	exit(0);
 }

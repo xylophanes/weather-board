@@ -1,0 +1,23 @@
+
+    Weather Board (version 3.00)
+    M.A. O'Neill, Tumbling Dice, 2016-2023
+
+    Usage : [sudo] weather_board [-usage | -help]
+            |
+            [-uperiod <update period in secs:60>]
+            [-ttymode:FALSE] | [-logfile <log file name> [-rollover <hh:mm:ss:00:00:00> | -rperiod <hh:mm:ss>]]
+            [i2c node:/dev/i2c-1]
+            [ >& <error/status log>]
+
+            Signals
+            =======
+
+            SIGUSR1  (10): force file rollover
+
+            SIGINT   (02):
+            SIGQUIT  (03):
+            SIGHUP   (01):
+            SIGERM   (15): exit gracefully
+
+            SIGUSR2  (12): write latest data to weatherpipe
+
