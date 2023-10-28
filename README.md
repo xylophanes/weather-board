@@ -1,4 +1,4 @@
-## This is a forked project for the WEATHER-BOARD (versions 1 and 2)
+## This is a forked project for Odroid WEATHER-BOARD (versions 1 and 2)
 
 You can find more details at the the WEATHER BOARD wiki:
 
