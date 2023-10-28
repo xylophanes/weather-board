@@ -1,10 +1,10 @@
-== This is a forked project for the WEATHER-BOARD (versions 1 and 2)
+## This is a forked project for the WEATHER-BOARD (versions 1 and 2)
 
 You can find more details at the the WEATHER BOARD wiki:
 
 https://wiki.odroid.com/accessory/sensor/weather-board/weather-board
 
-== c_weather
+## c_weather
 
 Functionality has been added to:
 
@@ -17,7 +17,7 @@ unless a rotation is forced via SIGUSR1.
 3. send weather sensor data to FIFO (weatherpipe) on reciept of SIGUSR2 so other processes
    can slave weather_board and use it to probe the weatherboard sensors.
 
-== weather sensor data format
+## Weather sensor data format
 
 
 <datetime>  uvi: <float> vis: <float>lux  ir: <float>lux  temp: <float>C humidity: <float>%%  dew point <float>C  pressure: <float>hpa
@@ -32,7 +32,7 @@ Where:
 * dew point is (wet bulb) temperature depression (degrees Celsius).
 * pressure is atmospheric pressure in Hectopascals.
 
-== usage
+## Usage
 
     Weather Board (version 3.00)
     M.A. O'Neill, Tumbling Dice, 2016-2023
