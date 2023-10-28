@@ -20,7 +20,7 @@ unless a rotation is forced via SIGUSR1.
 ## Weather sensor data format
 
 
-\<datetime\>  uvi: \<float\> vis: \<float\>lux  ir: \<float\>lux  temp: \<float\>C humidity: \<float\>%%  dew point \<float\>C  pressure: \<float>\hpa
+    \<datetime\>  uvi: \<float\> vis: \<float\>lux  ir: \<float\>lux  temp: \<float\>C humidity: \<float\>%%  dew point \<float\>C  pressure: \<float>\hpa
 
 Where:
 
